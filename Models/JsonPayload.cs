@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Sus.SurveyDataMigrationFunction;
+namespace SurveyFunctions.Models;
 
 public class JsonPayload
 {

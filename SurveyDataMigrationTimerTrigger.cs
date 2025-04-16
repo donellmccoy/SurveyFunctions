@@ -4,13 +4,16 @@ using System.Text;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using SurveyFunctions.Constants;
 
-namespace Sus.SurveyDataMigrationFunction;
+namespace SurveyFunctions;
 
 public class SurveyDataMigrationTimerTrigger
 {
     private readonly ILogger _logger;
+
     private readonly HttpClient _httpClient;
+
     private readonly IConfiguration _configuration;
 
     public SurveyDataMigrationTimerTrigger(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, IConfiguration configuration)
@@ -110,83 +113,13 @@ public class SurveyDataMigrationTimerTrigger
 
     private async Task<List<Dictionary<string, object>>> GetRespondentsAsync(string baseUrl, string projectId)
     {
-        const string jsonPayload = @"
-        {
-            ""CaseFilter"": {
-                ""FilterId"": 0,
-                ""FilterTitle"": null,
-                ""ProjectId"": ""103"",
-                ""QuestionList"": null,
-                ""Location"": """",
-                ""DialingMode"": -1,
-                ""TimeSlotMode"": -1,
-                ""TimeSlotId"": """",
-                ""TimeSlotOperator"": """",
-                ""TimeSlotHitCount"": """",
-                ""LastDialingMode"": 0,
-                ""RespondentCase"": 7,
-                ""RespondentState"": 0,
-                ""LastCallDateTime"": null,
-                ""CallBackDateTime"": null,
-                ""IsLastCallDateTimeTreadtedSeperatly"": false,
-                ""IsCallbackDateTimeTreatedSeperatly"": false,
-                ""IsCallBack"": false,
-                ""IsNotRecoded"": false,
-                ""ViewAdditionalColumns"": null,
-                ""QuestionHasOpenEnd"": """",
-                ""IsNotInClosedStrata"": false,
-                ""InterviewerIds"": """",
-                ""ResultCodes"": """",
-                ""LastCallResultCodes"": """",
-                ""Languages"": """",
-                ""UserTimeZone"": 0,
-                ""LinkedToA4S"": 1,
-                ""IsMissingRecords"": false,
-                ""IsMissingRecordsPronto"": false,
-                ""ExcludeRecordsInInterview"": false,
-                ""SqlStatementWithOrWithoutEquation"": null,
-                ""Equation"": """",
-                ""UseCurrentDateForStartCallBack"": false,
-                ""CallBackDateTimeFromDate"": ""1899-12-31T00:00:00.000"",
-                ""CallBackDateTimeFromTime"": ""1899-12-31T00:00:00.000"",
-                ""UseCurrentDateForEndCallBack"": false,
-                ""CallBackDateTimeToDate"": ""1899-12-31T00:00:00.000"",
-                ""CallBackDateTimeToTime"": ""1899-12-31T00:00:00.000"",
-                ""UseCurrentDateForStartLastCall"": false,
-                ""LastCallDateTimeStartDate"": ""1899-12-31T00:00:00.000"",
-                ""LastCallDateTimeStartTime"": ""1899-12-31T00:00:00.000"",
-                ""UseCurrentDateForEndLastCall"": false,
-                ""LastCallDateTimeEndDate"": ""1899-12-31T00:00:00.000"",
-                ""LastCallDateTimeEndTime"": ""1899-12-31T00:00:00.000"",
-                ""IsValid"": false,
-                ""Summary"": null,
-                ""Count"": 0,
-                ""CyclePhoneNumber"": -1,
-                ""KeywordFilter"": [],
-                ""Selection"": 0,
-                ""State"": 0,
-                ""NumberOfCases"": 0,
-                ""AgentId"": 0,
-                ""IsAnonymized"": null,
-                ""MaxRecords"": 0,
-                ""CaseFilterType"": 0,
-                ""LastModificationDateTimeStartDate"": null,
-                ""IsLastModificationDateTimeTreatedSeperatly"": false,
-                ""CompletedDateTime"": null,
-                ""IsCompletedDateTimeTreatedSeperatly"": false,
-                ""CompletedDateTimeStartDate"": null,
-                ""CompletedDateTimeEndDate"": null
-            },
-            ""Variables"": """"
-        }";
-
         var respondentsUrl = _configuration["VoxcoApi:RespondentsUrl"] ?? throw new InvalidOperationException("VoxcoApi:RespondentsUrl configuration value is missing");
         
         respondentsUrl = respondentsUrl.Replace("{projectId}", projectId);
         
         try
         {
-            var response = await _httpClient.PostAsync($"{baseUrl}/{respondentsUrl}", new StringContent(jsonPayload, Encoding.UTF8, "application/json"));
+            var response = await _httpClient.PostAsync($"{baseUrl}/{respondentsUrl}", new StringContent(JsonPayloads.JsonPayload, Encoding.UTF8, "application/json"));
 
             response.EnsureSuccessStatusCode();
             
