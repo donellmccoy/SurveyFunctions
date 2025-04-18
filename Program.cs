@@ -1,3 +1,4 @@
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,8 +12,8 @@ builder.Services.AddHttpClient();
 
 builder.Services.Configure<AppSettings>(builder.Configuration);
 
-//builder.Services
-//    .AddApplicationInsightsTelemetryWorkerService()
-//    .ConfigureFunctionsApplicationInsights();
+builder.Services
+    .AddApplicationInsightsTelemetryWorkerService()
+    .ConfigureFunctionsApplicationInsights();
 
 builder.Build().Run();
