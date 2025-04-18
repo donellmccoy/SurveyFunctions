@@ -65,7 +65,7 @@ public class SurveyDataMigrationTimerTrigger
     /// </remarks>
     /// <returns>A task that represents the asynchronous operation.</returns>
     [Function("SurveyDataMigrationTimerTrigger")]
-    public async Task RunAsync([TimerTrigger("0 */1 * * * *")] TimerInfo myTimer)
+    public async Task RunAsync([TimerTrigger("0 */1 * * * *", RunOnStartup = true)] TimerInfo myTimer)
     {
         _logger.LogInformation("C# Timer trigger function executed at: {DateTime.Now}", DateTime.Now);
         
