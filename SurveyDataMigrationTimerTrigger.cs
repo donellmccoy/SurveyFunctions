@@ -4,7 +4,9 @@ using System.Text;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using SurveyFunctions.Constants;
+using SurveyFunctions.Options;
 
 namespace SurveyFunctions;
 
@@ -16,11 +18,14 @@ public class SurveyDataMigrationTimerTrigger
 
     private readonly IConfiguration _configuration;
 
-    public SurveyDataMigrationTimerTrigger(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    private readonly IOptions<AppSettings> _options;    
+
+    public SurveyDataMigrationTimerTrigger(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, IConfiguration configuration, IOptions<AppSettings> options)
     {
         _logger = loggerFactory.CreateLogger<SurveyDataMigrationTimerTrigger>();
         _httpClient = httpClientFactory.CreateClient("VoxcoApi");
         _configuration = configuration;
+        _options = options;
     }
 
     [Function("SurveyDataMigrationTimerTrigger")]
@@ -45,19 +50,12 @@ public class SurveyDataMigrationTimerTrigger
     
     private async Task GetDataAsync()
     {
-        var baseUrl = _configuration["VoxcoApi:BaseUrl"] ?? throw new InvalidOperationException("VoxcoApi:BaseUrl configuration value is missing");
-        var authUrl = _configuration["VoxcoApi:AuthUrl"] ?? throw new InvalidOperationException("VoxcoApi:AuthUrl configuration value is missing");
-        var username = _configuration["VoxcoApi:Username"] ?? throw new InvalidOperationException("VoxcoApi:Username configuration value is missing");
-        var password = _configuration["VoxcoApi:Password"] ?? throw new InvalidOperationException("VoxcoApi:Password configuration value is missing");
-        var context = _configuration["VoxcoApi:Context"] ?? throw new InvalidOperationException("VoxcoApi:Context configuration value is missing");
-        var projectId = _configuration["VoxcoApi:ProjectId"] ?? throw new InvalidOperationException("VoxcoApi:ProjectId configuration value is missing");
-        
-        if (await IsAuthenticatedAsync(baseUrl, authUrl, username, password, context) is false)
+        if (await IsAuthenticatedAsync() is false)
         {
             return;
         }
         
-        var respondents = await GetRespondentsAsync(baseUrl, projectId);
+        var respondents = await GetRespondentsAsync();
         
         if (respondents is { Count: 0 })
         {
@@ -66,16 +64,18 @@ public class SurveyDataMigrationTimerTrigger
             return;
         }
         
-        await ProcessRespondentsAsync(respondents, baseUrl, projectId);
+        await ProcessRespondentsAsync(respondents);
         
         _logger.LogInformation("Voxco data migration completed successfully");
     }
     
-    private async Task<bool> IsAuthenticatedAsync(string baseUrl, string authUrl, string username, string password, string context)
+    private async Task<bool> IsAuthenticatedAsync()
     {
         try 
         {
-            var response = await _httpClient.GetAsync($"{baseUrl}/{authUrl}?userInfo.username={username}&userInfo.password={password}&userInfo.context={context}");
+            var requestUrl = $"{_options.Value.VoxcoApiOptions.BaseUrl}/{_options.Value.VoxcoApiOptions.AuthUrl}?userInfo.username={_options.Value.VoxcoApiOptions.Username}&userInfo.password={_options.Value.VoxcoApiOptions.Password}&userInfo.context={_options.Value.VoxcoApiOptions.Context}";
+
+            var response = await _httpClient.GetAsync(requestUrl);
 
             response.EnsureSuccessStatusCode();
         
@@ -111,15 +111,28 @@ public class SurveyDataMigrationTimerTrigger
         }
     }
 
-    private async Task<List<Dictionary<string, object>>> GetRespondentsAsync(string baseUrl, string projectId)
+    /// <summary>
+    /// Retrieves a list of respondents for a specified project from the Voxco API.
+    /// </summary>
+    /// <param name="baseUrl">The base URL of the Voxco API.</param>
+    /// <param name="projectId">The ID of the project for which respondents are to be retrieved.</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation. The task result contains a list of dictionaries,
+    /// where each dictionary represents a respondent's data. Returns an empty list if the data is empty
+    /// or an error occurs.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the configuration value for "VoxcoApi:RespondentsUrl" is missing.
+    /// </exception>
+    private async Task<List<Dictionary<string, object>>> GetRespondentsAsync()
     {
         var respondentsUrl = _configuration["VoxcoApi:RespondentsUrl"] ?? throw new InvalidOperationException("VoxcoApi:RespondentsUrl configuration value is missing");
         
-        respondentsUrl = respondentsUrl.Replace("{projectId}", projectId);
+        respondentsUrl = respondentsUrl.Replace("{projectId}", _options.Value.VoxcoApiOptions.ProjectId);
         
         try
         {
-            var response = await _httpClient.PostAsync($"{baseUrl}/{respondentsUrl}", new StringContent(JsonPayloads.JsonPayload, Encoding.UTF8, "application/json"));
+            var response = await _httpClient.PostAsync($"{_options.Value.VoxcoApiOptions.BaseUrl}/{respondentsUrl}", new StringContent(JsonPayloads.JsonPayload, Encoding.UTF8, "application/json"));
 
             response.EnsureSuccessStatusCode();
             
@@ -144,7 +157,7 @@ public class SurveyDataMigrationTimerTrigger
         }
     }
     
-    private async Task ProcessRespondentsAsync(List<Dictionary<string, object>> respondents, string baseUrl, string projectId)
+    private async Task ProcessRespondentsAsync(List<Dictionary<string, object>> respondents)
     {
         foreach (var respondent in respondents)
         {
@@ -168,9 +181,9 @@ public class SurveyDataMigrationTimerTrigger
 
             var responsesUrl = _configuration["VoxcoApi:ResponsesUrl"] ?? throw new InvalidOperationException("VoxcoApi:ResponsesUrl configuration value is missing");
                 
-            responsesUrl = responsesUrl.Replace("{projectId}", projectId).Replace("{id}", id);
+            responsesUrl = responsesUrl.Replace("{projectId}", _options.Value.VoxcoApiOptions.ProjectId).Replace("{id}", id);
 
-            var response = await _httpClient.GetAsync($"{baseUrl}/{responsesUrl}?offset=0&mergeMentions=false");
+            var response = await _httpClient.GetAsync($"{_options.Value.VoxcoApiOptions.BaseUrl}/{responsesUrl}?offset=0&mergeMentions=false");
             
             if (response.IsSuccessStatusCode)
             {
